@@ -41,8 +41,8 @@
             MaximumSize = new Size(800, 450);
             MinimumSize = new Size(800, 450);
 
-            Name = "Form1";
-            Text = "Form1";
+            Name = "SimpleTiming";
+            Text = "SimpleTiming";
 
             ResumeLayout(false);
             PerformLayout();

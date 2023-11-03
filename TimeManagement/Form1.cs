@@ -34,10 +34,17 @@ namespace TimeManagement
                 {
                     foreach (var taskItem in loadedTasks)
                     {
-                     
+                        if (taskItem.LastUpdated < DateTime.Today)
+                        {
+                            taskItem.LastUpdated = DateTime.Today;
+                            // Here you might want to carry over the time remaining
+                            // or reset it based on your business logic
+                        }
                         taskItems.Add(taskItem);
-                        var taskControl = AddTaskToPanel(taskItem); // Add task and get the control
+                        var taskControl = AddTaskToPanel(taskItem);
+                        taskControl.UpdateDateDisplay(); // You'll need to implement this method in TaskControl
                         taskControl.SetPriority(taskItem.Priority); // Use the SetPriority method of TaskControl
+
                     }
                 }
             }
@@ -207,11 +214,13 @@ namespace TimeManagement
             };
 
             taskItems.Add(newTask);
-            AddTaskToPanel(newTask);
-      
+            TaskControl taskControl = AddTaskToPanel(newTask); // Get the TaskControl instance
+
             SaveTasksToFile(); // Save tasks whenever a new task is added
 
             UpdateTotalTimeSum(); // Update the total time sum label
+
+            taskControl.UpdateDateDisplay(); // Now you can call UpdateDateDisplay on the TaskControl
         }
 
         private void BtnReset_Click(object sender, EventArgs e)
@@ -341,9 +350,9 @@ namespace TimeManagement
 
                 btnStop = new Button { Text = "Stop", AutoSize = true, BackColor = Color.White };
                 btnDelete = new Button { Text = "Remove", AutoSize = true, BackColor = Color.White };
-                btnPriorityLow = new Button { Text = "Low", AutoSize = true, BackColor = Color.Green };
-                btnPriorityMedium = new Button { Text = "Medium", AutoSize = true, BackColor = Color.Yellow };
-                btnPriorityHigh = new Button { Text = "High", AutoSize = true, BackColor = Color.Red };
+                btnPriorityLow = new Button { Text = "Fun", AutoSize = true, BackColor = Color.Green };
+                btnPriorityMedium = new Button { Text = "Skill", AutoSize = true, BackColor = Color.Yellow };
+                btnPriorityHigh = new Button { Text = "Work", AutoSize = true, BackColor = Color.Red };
 
                 // Attach event handlers
                 btnStart.Click += BtnStart_Click;
@@ -382,7 +391,16 @@ namespace TimeManagement
                 // Add the inner panel to the TaskControl
                 this.Controls.Add(innerPanel);
 
-           
+
+            }
+
+            public void UpdateDateDisplay()
+            {
+                // Calculate the number of days since the task was created
+                int dayNumber = (currentTask.LastUpdated - currentTask.CreationDate).Days + 1; // +1 to make it 1-based
+
+                // Append the day number to the lblTimeRemaining text
+                lblTimeRemaining.Text += $" - Day {dayNumber}"; // Modify this line to match how you want it to be displayed
             }
 
 
@@ -431,6 +449,8 @@ namespace TimeManagement
             private void BtnStop_Click(object? sender, EventArgs e)
             {
                 timer.Stop();
+                currentTask.LastUpdated = DateTime.Today;
+                TriggerTasksChanged(); // This will save the task with the new last updated date
             }
 
 
@@ -450,6 +470,7 @@ namespace TimeManagement
                     // Play a sound to indicate the timer has run out
                     PlaySound();
                 }
+                UpdateDateDisplay();
                 // This line ensures the time remaining is saved each second it ticks down
                 TriggerTasksChanged();
             }
@@ -470,6 +491,7 @@ namespace TimeManagement
 
                 TriggerTasksChanged();
                 UpdateTotalTimeSumOnParent(); // Update the total time sum on the parent form
+                UpdateDateDisplay();
             }
 
             private void BtnDecreaseTime_Click(object sender, EventArgs e)
@@ -484,6 +506,7 @@ namespace TimeManagement
 
                     TriggerTasksChanged();
                     UpdateTotalTimeSumOnParent(); // Update the total time sum on the parent form
+                    UpdateDateDisplay();
                 }
             }
 
@@ -513,19 +536,22 @@ namespace TimeManagement
         {
             public string Name { get; set; }
             public TimeSpan TotalTime { get; set; }
-            // Removed [JsonIgnore] so TimeRemaining is saved and loaded.
             public TimeSpan TimeRemaining { get; set; }
-            public TaskPriority Priority { get; set; } // Property for priority
+            public TaskPriority Priority { get; set; }
+            public DateTime LastUpdated { get; set; } // Add this line
+            public DateTime CreationDate { get; set; } // Property for creation date
+
 
             public TaskItem()
             {
                 Name = "New Task";
                 TotalTime = TimeSpan.Zero;
                 TimeRemaining = TotalTime;
-                Priority = TaskPriority.Medium; // Default priority
-            }
+                Priority = TaskPriority.Medium;
+                LastUpdated = DateTime.Today; // Initialize with today's date
+                CreationDate = DateTime.Today; // Set the creation date to the current date and time
 
-            // No need for a separate ResetTime method since the property is now serialized.
+            }
         }
 
         public class Task

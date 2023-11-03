@@ -34,9 +34,10 @@ namespace TimeManagement
                 {
                     foreach (var taskItem in loadedTasks)
                     {
-                        taskItem.ResetTime(); // Reset the TimeRemaining to TotalTime
+                     
                         taskItems.Add(taskItem);
-                        AddTaskToPanel(taskItem);
+                        var taskControl = AddTaskToPanel(taskItem); // Add task and get the control
+                        taskControl.SetPriority(taskItem.Priority); // Use the SetPriority method of TaskControl
                     }
                 }
             }
@@ -114,6 +115,25 @@ namespace TimeManagement
             TasksChanged += SaveTasksToFile; // Subscribe to the event
 
             
+        }
+
+        public void DeleteTask(TaskItem task)
+        {
+            // Remove the task from the list
+            taskItems.Remove(task);
+
+            // Find and remove the corresponding control
+            foreach (Control control in taskListPanel.Controls)
+            {
+                if (control is TaskControl taskControl && taskControl.Tag == task)
+                {
+                    taskListPanel.Controls.Remove(taskControl);
+                    break;
+                }
+            }
+
+            // Save the updated list of tasks
+            SaveTasksToFile();
         }
 
         private Control _draggingControl = null;
@@ -221,7 +241,7 @@ namespace TimeManagement
             UpdateTotalTimeSum(); // Update the total time sum label
         }
 
-        private void AddTaskToPanel(TaskItem task)
+        private TaskControl AddTaskToPanel(TaskItem task)
         {
             TaskControl taskControl = new TaskControl(task);
             taskControl.Tag = task; // Assign the TaskItem to the Tag property for reference
@@ -230,7 +250,9 @@ namespace TimeManagement
             taskListPanel.Controls.Add(taskControl);
 
             UpdateTotalTimeSum(); // Update the total time sum label
+            return taskControl; // Return the created control
         }
+
 
 
         // Nested TaskControl class
@@ -251,21 +273,31 @@ namespace TimeManagement
             public TaskControl(TaskItem task)
             {
                 this.currentTask = task;
-                this.Size = new Size(500, 110); // Set default size for TaskControl
+                this.Size = new Size(500, 120); // Set default size for TaskControl
                 InitializeTaskControl();
             }
 
-           
+            private Button btnDelete;
+            private Button btnPriorityLow;
+            private Button btnPriorityMedium;
+            private Button btnPriorityHigh;
 
             private void InitializeTaskControl()
             {
+                // Initialize the controls
                 this.lblTimeRemaining = new Label();
                 this.lblTotalRequired = new Label();
                 this.txtTaskName = new TextBox();
                 this.btnStart = new Button();
                 this.btnStop = new Button();
+                this.btnDelete = new Button();
+                this.btnPriorityLow = new Button();
+                this.btnPriorityMedium = new Button();
+                this.btnPriorityHigh = new Button();
                 this.timer = new System.Windows.Forms.Timer();
                 this.panel = new FlowLayoutPanel();
+
+                this.innerPanel = new Panel();
 
                 // Timer
                 timer.Interval = 1000;
@@ -276,74 +308,112 @@ namespace TimeManagement
 
                 // txtTaskName
                 txtTaskName.Text = currentTask.Name;
-                txtTaskName.Width = this.Width - 30;
+                txtTaskName.Width = this.Width - 15;
                 txtTaskName.TextChanged += TxtTaskName_TextChanged; // Add this line
-                // lblTimeRemaining
-                lblTimeRemaining.Size = new Size(250, 20);
-                lblTimeRemaining.Text = "Time Remaining: " + currentTask.TimeRemaining.ToString(@"hh\:mm\:ss");
 
                 // lblTotalRequired
-                lblTotalRequired.Size = new Size(250, 20);
-                lblTotalRequired.Text = "Total Time: " + currentTask.TotalTime.ToString(@"hh\:mm\:ss");
+                lblTotalRequired.AutoSize = true;
+                lblTotalRequired.Text = "Total: " + currentTask.TotalTime.ToString(@"hh\:mm\:ss");
 
-                // btnStart
-                btnStart.Text = "Start";
-                btnStart.AutoSize = true;
-                btnStart.Click += new EventHandler(BtnStart_Click);
 
-                // btnStop
-                btnStop.Text = "Stop";
-                btnStop.AutoSize = true;
-                btnStop.Click += new EventHandler(BtnStop_Click);
+                // lblTimeRemaining
+                lblTimeRemaining.AutoSize = true;
+                lblTimeRemaining.Text = "Remaining: " + currentTask.TimeRemaining.ToString(@"hh\:mm\:ss");
+
+              
+
+                // Initialize buttons
+                btnStart = new Button { Text = "Start", AutoSize = true, BackColor = Color.White };
 
                 // btnIncreaseTime
                 btnIncreaseTime = new Button();
                 btnIncreaseTime.Text = "+";
                 btnIncreaseTime.AutoSize = true;
+                btnIncreaseTime.BackColor = Color.White;
                 btnIncreaseTime.Click += BtnIncreaseTime_Click;
 
                 // btnDecreaseTime
                 btnDecreaseTime = new Button();
                 btnDecreaseTime.Text = "-";
                 btnDecreaseTime.AutoSize = true;
+                btnDecreaseTime.BackColor = Color.White;
                 btnDecreaseTime.Click += BtnDecreaseTime_Click;
 
-                // Positioning the buttons next to the "Total Time" label:
-                FlowLayoutPanel timePanel = new FlowLayoutPanel();
-                timePanel.Controls.Add(lblTotalRequired);
-                timePanel.Controls.Add(btnIncreaseTime);
-                timePanel.Controls.Add(btnDecreaseTime);
+                btnStop = new Button { Text = "Stop", AutoSize = true, BackColor = Color.White };
+                btnDelete = new Button { Text = "Remove", AutoSize = true, BackColor = Color.White };
+                btnPriorityLow = new Button { Text = "Low", AutoSize = true, BackColor = Color.Green };
+                btnPriorityMedium = new Button { Text = "Medium", AutoSize = true, BackColor = Color.Yellow };
+                btnPriorityHigh = new Button { Text = "High", AutoSize = true, BackColor = Color.Red };
 
-                FlowLayoutPanel btnPanel = new FlowLayoutPanel();
-                btnPanel.FlowDirection = FlowDirection.LeftToRight;
-                btnPanel.Controls.Add(lblTimeRemaining);
-                btnPanel.Controls.Add(btnStart);
-                btnPanel.Controls.Add(btnStop);
+                // Attach event handlers
+                btnStart.Click += BtnStart_Click;
+                btnStop.Click += BtnStop_Click;
+                btnDelete.Click += BtnDelete_Click;
+                btnPriorityLow.Click += (sender, e) => SetPriority(TaskPriority.Low);
+                btnPriorityMedium.Click += (sender, e) => SetPriority(TaskPriority.Medium);
+                btnPriorityHigh.Click += (sender, e) => SetPriority(TaskPriority.High);
 
-                // Adding controls to FlowLayoutPanel
+                // Create and configure the FlowLayoutPanel
+                panel.Dock = DockStyle.Fill;
+                panel.AutoSize = true;
+
+                // Now add the controls to the panel
                 panel.Controls.Add(txtTaskName);
-             
-                // Replace the panel.Controls.Add(lblTotalRequired) with:
-                panel.Controls.Add(timePanel);
-                panel.Controls.Add(btnPanel);
-                // Create an inner panel to hold all the other controls:
-                innerPanel = new Panel();
-                innerPanel.Size = new Size(this.Width - 10, this.Height - 10); // Making it slightly smaller
-                innerPanel.Location = new Point(5, 5); // Position it to create a "border" effect
-                innerPanel.BackColor = SystemColors.Control; // Default background color
+                panel.Controls.Add(lblTimeRemaining);
+                panel.Controls.Add(btnIncreaseTime);
+                panel.Controls.Add(btnDecreaseTime);
+                panel.Controls.Add(lblTotalRequired);
+                panel.Controls.Add(btnStart);
+                panel.Controls.Add(btnStop);
+                panel.Controls.Add(btnDelete);
+                panel.Controls.Add(btnPriorityLow);
+                panel.Controls.Add(btnPriorityMedium);
+                panel.Controls.Add(btnPriorityHigh);
 
-                // Adding controls to innerPanel instead of directly to the TaskControl
+
+                // Configure the inner panel
+                innerPanel.Size = new Size(this.Width - 10, this.Height - 10);
+                innerPanel.Location = new Point(5, 5);
+                innerPanel.BackColor = Color.LightGray;
+
+                // Add the FlowLayoutPanel to the inner panel
                 innerPanel.Controls.Add(panel);
 
-                // Set the background color of TaskControl to a slightly darker shade to create the border effect
-                this.BackColor = SystemColors.ControlDark;
-
-                // Add innerPanel to the TaskControl
+                // Add the inner panel to the TaskControl
                 this.Controls.Add(innerPanel);
 
-               
+           
             }
 
+
+            private void BtnDelete_Click(object sender, EventArgs e)
+            {
+                Form1 parentForm = this.FindForm() as Form1;
+                parentForm?.DeleteTask(this.currentTask);
+                parentForm?.UpdateTotalTimeSum();
+            }
+
+            public void SetPriority(TaskPriority priority)
+            {
+                currentTask.Priority = priority;
+                // Update UI to reflect the priority
+                switch (priority)
+                {
+                    case TaskPriority.Low:
+                        this.BackColor = Color.Green;
+                        break;
+                    case TaskPriority.Medium:
+                        this.BackColor = Color.Yellow;
+                        break;
+                    case TaskPriority.High:
+                        this.BackColor = Color.Red;
+                        break;
+                }
+                TriggerTasksChanged();
+                Form1 parentForm = this.FindForm() as Form1;
+                parentForm?.SaveTasksToFile();
+               
+            }
 
             private void TxtTaskName_TextChanged(object sender, EventArgs e)
             {
@@ -363,7 +433,7 @@ namespace TimeManagement
                 timer.Stop();
             }
 
-        
+
 
             private void Timer_Tick(object sender, EventArgs e)
             {
@@ -371,7 +441,7 @@ namespace TimeManagement
                 {
                     // Decrement the time remaining
                     currentTask.TimeRemaining = currentTask.TimeRemaining.Subtract(TimeSpan.FromSeconds(1));
-                    lblTimeRemaining.Text = "Time Remaining: " + currentTask.TimeRemaining.ToString(@"hh\:mm\:ss");
+                    lblTimeRemaining.Text = "Remaining: " + currentTask.TimeRemaining.ToString(@"hh\:mm\:ss");
                 }
                 else
                 {
@@ -380,6 +450,8 @@ namespace TimeManagement
                     // Play a sound to indicate the timer has run out
                     PlaySound();
                 }
+                // This line ensures the time remaining is saved each second it ticks down
+                TriggerTasksChanged();
             }
 
             private void PlaySound()
@@ -393,8 +465,8 @@ namespace TimeManagement
                 // Increase the total time required
                 currentTask.TotalTime = currentTask.TotalTime.Add(TimeSpan.FromMinutes(15));
                 currentTask.TimeRemaining = currentTask.TotalTime; // Reset the TimeRemaining to match
-                lblTotalRequired.Text = "Total Time: " + currentTask.TotalTime.ToString(@"hh\:mm\:ss");
-                lblTimeRemaining.Text = "Time Remaining: " + currentTask.TimeRemaining.ToString(@"hh\:mm\:ss");
+                lblTotalRequired.Text = "Total: " + currentTask.TotalTime.ToString(@"hh\:mm\:ss");
+                lblTimeRemaining.Text = "Remaining: " + currentTask.TimeRemaining.ToString(@"hh\:mm\:ss");
 
                 TriggerTasksChanged();
                 UpdateTotalTimeSumOnParent(); // Update the total time sum on the parent form
@@ -407,8 +479,8 @@ namespace TimeManagement
                     // Decrease the total time required
                     currentTask.TotalTime = currentTask.TotalTime.Subtract(TimeSpan.FromMinutes(15));
                     currentTask.TimeRemaining = currentTask.TotalTime; // Reset the TimeRemaining to match
-                    lblTotalRequired.Text = "Total Time: " + currentTask.TotalTime.ToString(@"hh\:mm\:ss");
-                    lblTimeRemaining.Text = "Time Remaining: " + currentTask.TimeRemaining.ToString(@"hh\:mm\:ss");
+                    lblTotalRequired.Text = "Total: " + currentTask.TotalTime.ToString(@"hh\:mm\:ss");
+                    lblTimeRemaining.Text = "Remaining: " + currentTask.TimeRemaining.ToString(@"hh\:mm\:ss");
 
                     TriggerTasksChanged();
                     UpdateTotalTimeSumOnParent(); // Update the total time sum on the parent form
@@ -429,26 +501,31 @@ namespace TimeManagement
             }
         }
 
+        public enum TaskPriority
+        {
+            Low,
+            Medium,
+            High
+        }
+
         [Serializable]
         public class TaskItem
         {
             public string Name { get; set; }
             public TimeSpan TotalTime { get; set; }
-            [JsonIgnore] // This attribute will prevent the property from being serialized
+            // Removed [JsonIgnore] so TimeRemaining is saved and loaded.
             public TimeSpan TimeRemaining { get; set; }
+            public TaskPriority Priority { get; set; } // Property for priority
 
             public TaskItem()
             {
                 Name = "New Task";
                 TotalTime = TimeSpan.Zero;
                 TimeRemaining = TotalTime;
+                Priority = TaskPriority.Medium; // Default priority
             }
 
-            // Call this method to reset the TimeRemaining to TotalTime when loading tasks
-            public void ResetTime()
-            {
-                TimeRemaining = TotalTime;
-            }
+            // No need for a separate ResetTime method since the property is now serialized.
         }
 
         public class Task
